@@ -976,6 +976,13 @@ pub fn run() {
                 }
             }
 
+            // MCP 的数据库状态是唯一事实来源。启动时即使数据库已有条目，
+            // live 配置也可能在上次供应商切换/代理接管时被整体重写，
+            // 因此必须重新投影所有已启用服务器，而不能只在首次导入时处理。
+            if let Err(e) = crate::services::mcp::McpService::sync_all_enabled(&app_state) {
+                log::warn!("✗ Failed to sync enabled MCP servers on startup: {e}");
+            }
+
             // 4. 导入提示词文件（表空时触发）
             if app_state.db.is_prompts_table_empty().unwrap_or(false) {
                 log::info!("Prompts table empty, importing from live configurations...");
