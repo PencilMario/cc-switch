@@ -21,8 +21,6 @@ concurrency:
 
 jobs:
   release:
-    # Unsigned manual builds are intentionally limited to Windows local artifacts.
-    if: github.event_name != 'workflow_dispatch' || !inputs.unsigned || startsWith(matrix.os, 'windows')
     runs-on: ${{ matrix.os }}
     environment: release
     strategy:
@@ -189,7 +187,7 @@ jobs:
           echo "✅ Tauri signing key prepared"
 
       - name: Import Apple signing certificate
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || !inputs.unsigned)
         shell: bash
         run: |
           set -euo pipefail
@@ -231,7 +229,7 @@ jobs:
           rm -f "$CERT_PATH"
 
       - name: Build Tauri App (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || !inputs.unsigned)
         shell: bash
         timeout-minutes: 60
         env:
@@ -274,11 +272,11 @@ jobs:
           }
 
       - name: Build Tauri App (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && (github.event_name != 'workflow_dispatch' || !inputs.unsigned)
         run: pnpm tauri build --bundles appimage,deb,rpm
 
       - name: Prepare macOS Assets
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || !inputs.unsigned)
         shell: bash
         run: |
           set -euxo pipefail
@@ -395,7 +393,7 @@ jobs:
           done
 
       - name: Verify macOS code signing and notarization
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || !inputs.unsigned)
         shell: bash
         run: |
           set -euo pipefail
@@ -516,7 +514,7 @@ jobs:
           }
 
       - name: Prepare Linux Assets
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && (github.event_name != 'workflow_dispatch' || !inputs.unsigned)
         shell: bash
         run: |
           set -euxo pipefail
