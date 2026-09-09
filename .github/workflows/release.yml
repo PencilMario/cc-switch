@@ -5,6 +5,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      unsigned:
+        description: 'Build unsigned Windows artifacts for local use (no updater signatures)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -15,6 +21,8 @@ concurrency:
 
 jobs:
   release:
+    # Unsigned manual builds are intentionally limited to Windows local artifacts.
+    if: github.event_name != 'workflow_dispatch' || !inputs.unsigned || startsWith(matrix.os, 'windows')
     runs-on: ${{ matrix.os }}
     environment: release
     strategy:
@@ -124,6 +132,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Prepare Tauri signing key
+        if: github.event_name != 'workflow_dispatch' || !inputs.unsigned
         shell: bash
         run: |
           # 调试：检查 Secret 是否存在
@@ -257,10 +266,11 @@ jobs:
           WINDOWS_RELEASE_ARCH: ${{ matrix.arch || 'x86_64' }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $unsignedArgs = if ('${{ inputs.unsigned }}' -eq 'true') { @('--config', '{"bundle":{"createUpdaterArtifacts":false}}') } else { @() }
           if ($env:WINDOWS_RELEASE_ARCH -eq 'arm64') {
-            pnpm tauri build --target aarch64-pc-windows-msvc --bundles msi
+            pnpm tauri build --target aarch64-pc-windows-msvc --bundles msi @unsignedArgs
           } else {
-            pnpm tauri build
+            pnpm tauri build @unsignedArgs
           }
 
       - name: Build Tauri App (Linux)
@@ -456,7 +466,7 @@ jobs:
             if (Test-Path $sigPath) {
               Copy-Item $sigPath (Join-Path release-assets ("$dest.sig"))
               Write-Host "Signature copied: $dest.sig"
-            } elseif ($isArm64) {
+            } elseif ($isArm64 -and '${{ inputs.unsigned }}' -ne 'true') {
               throw "Signature not found for $($msi.Name)"
             } else {
               Write-Warning "Signature not found for $($msi.Name)"
@@ -579,6 +589,7 @@ jobs:
 
   publish-release:
     name: Publish GitHub Release
+    if: github.event_name != 'workflow_dispatch' || !inputs.unsigned
     runs-on: ubuntu-22.04
     needs: release
     permissions:
@@ -628,6 +639,7 @@ jobs:
 
   assemble-latest-json:
     name: Assemble latest.json
+    if: github.event_name != 'workflow_dispatch' || !inputs.unsigned
     runs-on: ubuntu-22.04
     needs: publish-release
     permissions:
